@@ -1,10 +1,46 @@
 <?php
 
+class ToroTemplate
+{
+    var $vars; /// Holds all the template variables
+    var $path; /// Path to the templates
+
+   	public function __construct($path = './templates/')
+    {
+        $this->path = $path;
+        $this->vars = array();
+    }
+
+    public function set($name, $value)
+    {
+        $this->vars[$name] = $value;
+    }
+
+    public function setVars($vars, $clear = false)
+    {
+        if ($clear) {
+            $this->vars = $vars;
+        } else {
+            if (is_array($vars)) $this->vars = array_merge($this->vars, $vars);
+        }
+    }
+
+    public function fetch($file = 'index.tpl.php')
+    {
+        extract($this->vars);          // Extract the vars to local namespace
+        ob_start();                    // Start output buffering
+        include $this->path . $file;  // Include the file
+        $contents = ob_get_contents(); // Get the contents of the buffer
+        ob_end_clean();                // End buffering and discard
+        return $contents;              // Return the contents
+    }
+
+}
+	
 class InvalidRouteType extends Exception {}
 
-// Provided by Danillo César de O. Melo
-// https://github.com/danillos/fire_event/blob/master/Event.php
 class ToroHook {
+	
     private static $instance;
   
     private $hooks = array();
@@ -53,6 +89,8 @@ class ToroApplication {
         $discovered_handler = NULL;
         $regex_matches = array();
         $method_arguments = NULL;
+
+		//$this->_handler_route_pairs[] = array('.*', 'ErrorHandler');  //this could be activated to push errorhandler method everytime.
 
         foreach ($this->_handler_route_pairs as $handler) {
             list($pattern, $handler_name) = $handler;
@@ -103,14 +141,13 @@ class ToroApplication {
             ToroHook::fire('after_handler');
         }
         else {
-            header('HTTP/1.0 404 Not Found');
-            echo '404 Not Found';
-            exit;
+			$this->_handler_route_pairs[] = array('.*', 'ErrorHandler');
+			$this->serve();
         }
     
         ToroHook::fire('after_request');
     }
-
+	
     private function get_argument_overrides($handler_route) {
         if (isset($handler_route[2]) && is_array($handler_route[2])) {
             return $handler_route[2];
@@ -123,20 +160,37 @@ class ToroApplication {
     }
 
     private function ipad_request() {
-        return strstr($_SERVER['HTTP_USER_AGENT'], 'iPad');
+        return isset($_SERVER['HTTP_USER_AGENT']) && strstr($_SERVER['HTTP_USER_AGENT'], 'iPad');
     }
 
     private function mobile_request() {
-        return strstr($_SERVER['HTTP_USER_AGENT'], 'iPhone') || strstr($_SERVER['HTTP_USER_AGENT'], 'iPod') || strstr($_SERVER['HTTP_USER_AGENT'], 'Android') || strstr($_SERVER['HTTP_USER_AGENT'], 'webOS');
+        return isset($_SERVER['HTTP_USER_AGENT']) && (strstr($_SERVER['HTTP_USER_AGENT'], 'iPhone') || strstr($_SERVER['HTTP_USER_AGENT'], 'iPod') || strstr($_SERVER['HTTP_USER_AGENT'], 'Android') || strstr($_SERVER['HTTP_USER_AGENT'], 'webOS'));
     }
 }
 
 class ToroHandler {
-    public function __construct() { }
+	
+    public function __construct() { 
+		global $ttpl;
+		$ttpl = new ToroTemplate(dirname(__FILE__) . '/templates/');
+		$this->ttpl = $ttpl;
+	}
+	
+	public function __call($name, $arguments) {
+		$this->not_found();
+	}
+	
+	public function not_found(){
+		header('HTTP/1.1 404 Not Found');	
+		$this->ttpl->set('title', 'Page Not Found');
+		$this->ttpl->set('content', 'The page you were looking for could not be found.');
+	}
+}
 
-    public function __call($name, $arguments) {
-        header('HTTP/1.0 404 Not Found');
-        echo '404 Not Found';
-        exit;
+class ErrorHandler extends ToroHandler {
+    public function get() {
+		$this->not_found();
     }
 }
+
+?>

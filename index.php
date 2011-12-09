@@ -36,10 +36,10 @@ class ArticleHandler extends ToroHandler {
 }
 
 $site = new ToroApplication(array(
-    array('/', 'MainHandler'),
-    array('test', 'TestHandler'),
+    	array('/', 'MainHandler'),
+    	array('test', 'TestHandler'),
 	array("article/([a-zA-Z0-9_]+)", 'ArticleHandler'),
-    array("([a-zA-Z0-9_]+)", 'ArticleHandler'),
+    	array("([a-zA-Z0-9_]+)", 'ArticleHandler'),
 	//array('.*', 'ErrorHandler') //no longer needed everytime for custom 404 page
 ));
 
